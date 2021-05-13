@@ -1,0 +1,3 @@
+http://books.toscrape.com
+https://www.craigslist.org
+https://openweathermap.org
