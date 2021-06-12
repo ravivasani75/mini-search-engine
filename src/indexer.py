@@ -7,6 +7,7 @@ import re
 from collections import defaultdict
 import sqlite3
 import ssl
+import math
 
 # Handle SSL certificate verification issues
 try:
@@ -61,9 +62,10 @@ def build_index(data_directory, conn):
 
                 # Update the inverted index
                 for token, count in token_counts.items():
+                    tf = count / doc_length  # Term Frequency (TF)
                     cursor.execute(
-                        "INSERT INTO inverted_index (token, doc_id, frequency) VALUES (?, ?, ?)",
-                        (token, doc_id, count),
+                        "INSERT INTO inverted_index (token, doc_id, frequency, tf) VALUES (?, ?, ?, ?)",
+                        (token, doc_id, count, tf),
                     )
 
     # Store or update the total document count for IDF calculation
@@ -72,6 +74,18 @@ def build_index(data_directory, conn):
         "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
         ("doc_count", doc_count),
     )
+    conn.commit()
+
+    # Calculate and store IDF (Inverse Document Frequency) for each token
+    for token in cursor.execute("SELECT DISTINCT token FROM inverted_index"):
+        token = token[0]
+        cursor.execute(
+            "SELECT COUNT(DISTINCT doc_id) FROM inverted_index WHERE token=?", (token,)
+        )
+        doc_freq = cursor.fetchone()[0]
+        idf = math.log(doc_count / (1 + doc_freq))  # IDF calculation
+        cursor.execute("UPDATE inverted_index SET idf=? WHERE token=?", (idf, token))
+
     conn.commit()
 
 
@@ -97,6 +111,8 @@ def save_index_sqlite(index, db_filepath):
         token TEXT NOT NULL,
         doc_id INTEGER NOT NULL,
         frequency INTEGER NOT NULL,
+        tf REAL NOT NULL,
+        idf REAL,
         FOREIGN KEY (doc_id) REFERENCES documents (id)
     )
     """
@@ -122,4 +138,4 @@ if __name__ == "__main__":
     conn = save_index_sqlite(None, db_filepath)
     build_index(data_directory, conn)
     conn.close()
-    print(f"Inverted index saved to {db_filepath}")
+    print(f"Inverted index with TF-IDF saved to {db_filepath}")
