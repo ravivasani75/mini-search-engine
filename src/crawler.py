@@ -7,8 +7,12 @@ import time
 import hashlib
 
 # Setup logging
-logging.basicConfig(filename='crawler.log', level=logging.INFO, 
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="crawler.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
 
 def fetch_content(url):
     try:
@@ -19,28 +23,32 @@ def fetch_content(url):
         logging.error(f"Failed to retrieve {url}: {e}")
         return None
 
+
 def parse_html(html_content):
-    soup = BeautifulSoup(html_content, 'html.parser')
+    soup = BeautifulSoup(html_content, "html.parser")
     return soup.get_text()
 
+
 def save_to_file(data, filename):
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         json.dump(data, f, indent=4)
 
+
 def is_duplicate_content(content, seen_hashes):
-    content_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
+    content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
     if content_hash in seen_hashes:
         return True
     seen_hashes.add(content_hash)
     return False
 
+
 if __name__ == "__main__":
     # Create data directory if it doesn't exist
-    if not os.path.exists('data'):
-        os.makedirs('data')
+    if not os.path.exists("data"):
+        os.makedirs("data")
 
     # Read URLs from websites.txt
-    with open('src/websites.txt', 'r') as file:
+    with open("src/websites.txt", "r") as file:
         urls = file.read().splitlines()
 
     # Keep track of seen URLs and hashes to avoid duplicates
@@ -55,7 +63,7 @@ if __name__ == "__main__":
 
         content = fetch_content(url)
         if content:
-            text = ' '.join(parse_html(content).split())  # Cleaned content
+            text = " ".join(parse_html(content).split())  # Cleaned content
             if is_duplicate_content(text, seen_hashes):
                 logging.info(f"Skipping duplicate content from {url}")
                 continue

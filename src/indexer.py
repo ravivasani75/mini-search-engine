@@ -32,8 +32,8 @@ def tokenize(text):
 
 
 def build_index(data_directory, conn):
-    inverted_index = defaultdict(list)
     doc_count = 0
+    inverted_index = defaultdict(lambda: defaultdict(int))
 
     # Iterate over all JSON files in the data directory
     for filename in os.listdir(data_directory):
@@ -46,11 +46,11 @@ def build_index(data_directory, conn):
                 tokens = tokenize(content)
                 doc_length = len(tokens)
                 doc_count += 1
-                token_counts = defaultdict(int)
 
                 # Count the frequency of each token
                 for token in tokens:
-                    token_counts[token] += 1
+                    inverted_index[token]["doc_freq"] += 1
+                    inverted_index[token][url] += 1
 
                 # Insert the document details into the database
                 cursor = conn.cursor()
@@ -60,14 +60,6 @@ def build_index(data_directory, conn):
                 )
                 doc_id = cursor.lastrowid
 
-                # Update the inverted index
-                for token, count in token_counts.items():
-                    tf = count / doc_length  # Term Frequency (TF)
-                    cursor.execute(
-                        "INSERT INTO inverted_index (token, doc_id, frequency, tf) VALUES (?, ?, ?, ?)",
-                        (token, doc_id, count, tf),
-                    )
-
     # Store or update the total document count for IDF calculation
     cursor = conn.cursor()
     cursor.execute(
@@ -76,15 +68,22 @@ def build_index(data_directory, conn):
     )
     conn.commit()
 
-    # Calculate and store IDF (Inverse Document Frequency) for each token
-    for token in cursor.execute("SELECT DISTINCT token FROM inverted_index"):
-        token = token[0]
-        cursor.execute(
-            "SELECT COUNT(DISTINCT doc_id) FROM inverted_index WHERE token=?", (token,)
-        )
-        doc_freq = cursor.fetchone()[0]
-        idf = math.log(doc_count / (1 + doc_freq))  # IDF calculation
-        cursor.execute("UPDATE inverted_index SET idf=? WHERE token=?", (idf, token))
+    # Calculate and store TF and IDF for each token in each document
+    for token, data in inverted_index.items():
+        doc_freq = data.pop("doc_freq")
+        idf = max(
+            math.log((doc_count + 1) / (1 + doc_freq)), 0
+        )  # Apply correction to prevent negative values
+        for url, tf_count in data.items():
+            cursor.execute("SELECT id, doc_length FROM documents WHERE url=?", (url,))
+            result = cursor.fetchone()
+            if result:
+                doc_id, doc_length = result
+                tf = tf_count / doc_length if doc_length > 0 else 0
+                cursor.execute(
+                    "INSERT INTO inverted_index (token, doc_id, frequency, tf, idf) VALUES (?, ?, ?, ?, ?)",
+                    (token, doc_id, tf_count, tf, idf),
+                )
 
     conn.commit()
 
@@ -112,7 +111,7 @@ def save_index_sqlite(index, db_filepath):
         doc_id INTEGER NOT NULL,
         frequency INTEGER NOT NULL,
         tf REAL NOT NULL,
-        idf REAL,
+        idf REAL NOT NULL,
         FOREIGN KEY (doc_id) REFERENCES documents (id)
     )
     """
