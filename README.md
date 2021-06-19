@@ -2,72 +2,90 @@
 # Mini Search Engine
 
 ## Project Overview
+This project implements a mini search engine that crawls specified websites, indexes the content, and allows users to search through the content using a command-line interface. The search results are ranked based on TF-IDF (Term Frequency-Inverse Document Frequency) scores, which measure the relevance of documents to the search query.
 
-The Mini Search Engine is a Python-based project designed to crawl a set of predefined websites, parse the content, and store it in a structured format. The ultimate goal is to build a search engine that can index and search through the collected data.
-
-### Features
-- **Web Crawling:** Fetch HTML content from specified URLs.
-- **Content Parsing:** Extract raw text from HTML using BeautifulSoup.
-- **Data Storage:** Save parsed content as JSON files for easy indexing and retrieval.
+## Features
+- **Web Crawler**: A robust crawler that fetches and parses content from specified websites.
+- **Text Processing**: Tokenization, stemming, and stop word removal to prepare the text for indexing.
+- **Inverted Index**: Creation of an inverted index that maps terms to the documents in which they appear, along with their TF-IDF scores.
+- **TF-IDF Ranking**: Documents are ranked based on their TF-IDF scores, which prioritize terms that are distinctive to fewer documents.
+- **Search Interface**: A command-line interface that allows users to input search queries and retrieve ranked results.
 
 ## Project Structure
+- `crawler.py`: The script responsible for crawling specified websites and extracting text content.
+- `indexer.py`: The script that processes the crawled data, builds the inverted index, and calculates TF-IDF scores.
+- `search.py`: The script that allows users to search through the indexed data and retrieve results based on TF-IDF ranking.
 
-```
-mini-search-engine/
-│
-├── data/                     # Directory where JSON files will be stored
-│   └── example-blog_com.json  # Example of a saved JSON file
-│
-├── docs/                     # Directory for documentation
-│
-├── src/
-│   ├── crawler.py            # The web crawler script
-│   └── websites.txt          # List of URLs to crawl
-│
-├── tests/                    # Directory for unit/integration tests
-│
-├── .gitignore                # Python .gitignore file
-├── README.md                 # Project overview
-└── requirements.txt          # List of dependencies
-```
+## How It Works
 
-## Setup Instructions
+### 1. Web Crawler (`crawler.py`)
+- Fetches content from the URLs listed in `websites.txt`.
+- Parses the HTML content to extract the text.
+- Stores the extracted content in JSON format.
 
-1. **Clone the Repository:**
+### 2. Indexing and TF-IDF Calculation (`indexer.py`)
+- Processes the crawled text, tokenizing it into individual words.
+- Applies stemming and stop word removal.
+- Builds an inverted index, mapping each term to the documents where it appears.
+- Calculates TF-IDF scores for each term in each document to determine its relevance.
+
+### 3. Search Interface (`search.py`)
+- Accepts a user’s search query through the command line.
+- Tokenizes and processes the query using the same methods as in `indexer.py`.
+- Retrieves relevant documents from the SQLite database and ranks them using TF-IDF scores.
+- Displays the top-ranked results to the user.
+
+## Installation and Setup
+
+### Requirements
+- Python 3.x
+- Required Python packages (listed in `requirements.txt`):
+  - `nltk`
+  - `requests`
+  - `beautifulsoup4`
+  - `Flask`
+
+### Instructions
+1. **Clone the repository**:
    ```bash
-   git clone git@github.com:yourusername/mini-search-engine.git
+   git clone <repository-url>
    cd mini-search-engine
    ```
 
-2. **Set Up the Virtual Environment:**
+2. **Set up a virtual environment** (optional but recommended):
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    ```
 
-3. **Install Dependencies:**
+3. **Install the required packages**:
    ```bash
    pip install -r requirements.txt
    ```
 
-## How to Use
-
-1. **Specify Websites to Crawl:**
-   - Add or modify URLs in the `src/websites.txt` file.
-
-2. **Run the Web Crawler:**
+4. **Run the web crawler** to fetch and parse content:
    ```bash
    python src/crawler.py
    ```
 
-3. **Output:**
-   - The crawled and parsed content will be saved as JSON files in the `data/` directory.
+5. **Run the indexer** to build the inverted index and calculate TF-IDF scores:
+   ```bash
+   python src/indexer.py
+   ```
 
-## Next Steps
+6. **Search through the indexed data** using the command-line interface:
+   ```bash
+   python src/search.py
+   ```
 
-- Implement an indexing system to enable searching through the stored content.
-- Add more robust error handling and edge case management for the web crawler.
+## Future Enhancements
+- **Boolean and Phrase Search**: Implement support for boolean operators and exact phrase matching.
+- **Web Interface**: Develop a Flask-based web interface for more user-friendly search interactions.
+- **Advanced Features**: Implement relevance feedback, synonym handling, and scalability improvements.
 
 ## License
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Acknowledgments
+- Inspired by basic search engine concepts and TF-IDF implementations.
+- NLTK library for natural language processing.
