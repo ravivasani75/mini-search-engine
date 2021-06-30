@@ -27,36 +27,136 @@ def tokenize(text):
     return filtered_tokens
 
 
-def search_query(query, conn):
-    tokens = tokenize(query)
-    results = {}
+def apply_not_logic(results, not_terms, cursor):
+    for term in not_terms:
+        not_tokens = tokenize(term)
+        for token in not_tokens:
+            cursor.execute(
+                """
+            SELECT documents.url FROM inverted_index
+            JOIN documents ON inverted_index.doc_id = documents.id
+            WHERE inverted_index.token = ?
+            """,
+                (token,),
+            )
+            for row in cursor.fetchall():
+                url = row[0]
+                if url in results:
+                    del results[url]
+    return results
 
+
+def apply_and_logic(and_queries, cursor):
+    results = None
+    for subquery in and_queries:
+        sub_results = search_subquery(subquery, cursor)
+        if results is None:
+            results = sub_results
+        else:
+            results = {
+                url: results[url] + sub_results.get(url, 0)
+                for url in results
+                if url in sub_results
+            }
+    return results
+
+
+def apply_or_logic(or_queries, cursor):
+    results = {}
+    for subquery in or_queries:
+        sub_results = search_subquery(subquery, cursor)
+        for url, score in sub_results.items():
+            if url in results:
+                results[url] += score
+            else:
+                results[url] = score
+    return results
+
+
+def search_subquery(query, cursor):
+    if " not " in query:
+        positive_part, negative_part = query.split(" not ", 1)
+        positive_tokens = tokenize(positive_part)
+        negative_tokens = tokenize(negative_part)
+
+        results = {}
+        for token in positive_tokens:
+            cursor.execute(
+                """
+            SELECT documents.url, inverted_index.tf, inverted_index.idf, inverted_index.tf * inverted_index.idf AS tfidf
+            FROM inverted_index
+            JOIN documents ON inverted_index.doc_id = documents.id
+            WHERE inverted_index.token = ?
+            ORDER BY tfidf DESC
+            """,
+                (token,),
+            )
+            for row in cursor.fetchall():
+                url = row[0]
+                tfidf_score = row[3] if row[3] is not None else 0
+                if url in results:
+                    results[url] += tfidf_score
+                else:
+                    results[url] = tfidf_score
+
+        results = apply_not_logic(results, [negative_part], cursor)
+
+    elif query.startswith("not "):
+        not_terms = query.split("not ", 1)[1].strip()
+        results = {row[0]: 0 for row in cursor.execute("SELECT url FROM documents")}
+        results = apply_not_logic(results, [not_terms], cursor)
+
+    else:
+        results = {}
+        tokens = tokenize(query)
+        for token in tokens:
+            cursor.execute(
+                """
+            SELECT documents.url, inverted_index.tf, inverted_index.idf, inverted_index.tf * inverted_index.idf AS tfidf
+            FROM inverted_index
+            JOIN documents ON inverted_index.doc_id = documents.id
+            WHERE inverted_index.token = ?
+            ORDER BY tfidf DESC
+            """,
+                (token,),
+            )
+            for row in cursor.fetchall():
+                url = row[0]
+                tfidf_score = row[3] if row[3] is not None else 0
+                if url in results:
+                    results[url] += tfidf_score
+                else:
+                    results[url] = tfidf_score
+
+    return results
+
+
+def search_query(query, conn):
     cursor = conn.cursor()
 
-    for token in tokens:
-        cursor.execute(
-            """
-        SELECT documents.url, inverted_index.tf, inverted_index.idf, inverted_index.tf * inverted_index.idf AS tfidf
-        FROM inverted_index
-        JOIN documents ON inverted_index.doc_id = documents.id
-        WHERE inverted_index.token = ?
-        ORDER BY tfidf DESC
-        """,
-            (token,),
-        )
+    # Break the query into parts by AND, then further by OR
+    and_parts = [part.strip() for part in query.lower().split(" and ")]
+    or_parts = [part.split(" or ") for part in and_parts]
 
-        for row in cursor.fetchall():
-            url = row[0]
-            tfidf_score = (
-                row[3] if row[3] is not None else 0
-            )  # Handle NoneType by assigning a score of 0
-            if url in results:
-                results[url] += tfidf_score
-            else:
-                results[url] = tfidf_score
+    # Process each OR group
+    combined_results = None
+    for or_group in or_parts:
+        or_results = apply_or_logic(or_group, cursor)
+        if combined_results is None:
+            combined_results = or_results
+        else:
+            combined_results = {
+                url: combined_results.get(url, 0) + or_results.get(url, 0)
+                for url in combined_results
+                if url in or_results
+            }
 
     # Sort results by score in descending order
-    sorted_results = sorted(results.items(), key=lambda item: item[1], reverse=True)
+    sorted_results = (
+        sorted(combined_results.items(), key=lambda item: item[1], reverse=True)
+        if combined_results
+        else []
+    )
     return sorted_results
 
 
@@ -73,7 +173,10 @@ if __name__ == "__main__":
 
     # Display the results
     print("Search Results:")
-    for url, score in results:
-        print(f"URL: {url}, Score: {score}")
+    if results:
+        for url, score in results:
+            print(f"URL: {url}, Score: {score}")
+    else:
+        print("No results found.")
 
     conn.close()
