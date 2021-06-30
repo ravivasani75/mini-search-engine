@@ -9,12 +9,13 @@ This project implements a mini search engine that crawls specified websites, ind
 - **Text Processing**: Tokenization, stemming, and stop word removal to prepare the text for indexing.
 - **Inverted Index**: Creation of an inverted index that maps terms to the documents in which they appear, along with their TF-IDF scores.
 - **TF-IDF Ranking**: Documents are ranked based on their TF-IDF scores, which prioritize terms that are distinctive to fewer documents.
-- **Search Interface**: A command-line interface that allows users to input search queries and retrieve ranked results.
+- **Boolean Search**: Support for Boolean operators (`AND`, `OR`, `NOT`) in search queries, with correct operator precedence.
+- **Search Interface**: A command-line interface that allows users to input search queries and retrieve ranked results based on TF-IDF ranking.
 
 ## Project Structure
 - `crawler.py`: The script responsible for crawling specified websites and extracting text content.
 - `indexer.py`: The script that processes the crawled data, builds the inverted index, and calculates TF-IDF scores.
-- `search.py`: The script that allows users to search through the indexed data and retrieve results based on TF-IDF ranking.
+- `search.py`: The script that allows users to search through the indexed data and retrieve results based on Boolean logic and TF-IDF ranking.
 
 ## How It Works
 
@@ -29,8 +30,9 @@ This project implements a mini search engine that crawls specified websites, ind
 - Builds an inverted index, mapping each term to the documents where it appears.
 - Calculates TF-IDF scores for each term in each document to determine its relevance.
 
-### 3. Search Interface (`search.py`)
+### 3. Boolean Search and Interface (`search.py`)
 - Accepts a user’s search query through the command line.
+- Supports Boolean operators (`AND`, `OR`, `NOT`) with correct precedence handling (`NOT > AND > OR`).
 - Tokenizes and processes the query using the same methods as in `indexer.py`.
 - Retrieves relevant documents from the SQLite database and ranks them using TF-IDF scores.
 - Displays the top-ranked results to the user.
@@ -78,10 +80,14 @@ This project implements a mini search engine that crawls specified websites, ind
    python src/search.py
    ```
 
+### Example Queries
+- **Basic Search**: `python`
+- **Boolean Search**: `python AND machine OR java AND NOT javascript`
+
 ## Future Enhancements
-- **Boolean and Phrase Search**: Implement support for boolean operators and exact phrase matching.
+- **Phrase and Proximity Search**: Implement support for exact phrases and proximity-based searches.
 - **Web Interface**: Develop a Flask-based web interface for more user-friendly search interactions.
-- **Advanced Features**: Implement relevance feedback, synonym handling, and scalability improvements.
+- **Performance Optimization**: Implement index compression and parallel crawling to enhance performance.
 
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
