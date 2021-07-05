@@ -4,6 +4,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 import ssl
+import zlib
 
 # Handle SSL certificate verification issues
 try:
@@ -27,17 +28,28 @@ def tokenize(text):
     return filtered_tokens
 
 
+def compress_term(term):
+    # Compress the term using zlib for basic compression
+    return zlib.compress(term.encode("utf-8"))
+
+
+def decompress_term(compressed_term):
+    # Decompress the term for lookup
+    return zlib.decompress(compressed_term).decode("utf-8")
+
+
 def apply_not_logic(results, not_terms, cursor):
     for term in not_terms:
         not_tokens = tokenize(term)
         for token in not_tokens:
+            compressed_token = compress_term(token)
             cursor.execute(
                 """
             SELECT documents.url FROM inverted_index
             JOIN documents ON inverted_index.doc_id = documents.id
             WHERE inverted_index.token = ?
             """,
-                (token,),
+                (compressed_token,),
             )
             for row in cursor.fetchall():
                 url = row[0]
@@ -81,6 +93,7 @@ def search_subquery(query, cursor):
 
         results = {}
         for token in positive_tokens:
+            compressed_token = compress_term(token)
             cursor.execute(
                 """
             SELECT documents.url, inverted_index.tf, inverted_index.idf, inverted_index.tf * inverted_index.idf AS tfidf
@@ -89,7 +102,7 @@ def search_subquery(query, cursor):
             WHERE inverted_index.token = ?
             ORDER BY tfidf DESC
             """,
-                (token,),
+                (compressed_token,),
             )
             for row in cursor.fetchall():
                 url = row[0]
@@ -102,6 +115,7 @@ def search_subquery(query, cursor):
         results = apply_not_logic(results, [negative_part], cursor)
 
     elif query.startswith("not "):
+        # Handle standalone NOT queries
         not_terms = query.split("not ", 1)[1].strip()
         results = {row[0]: 0 for row in cursor.execute("SELECT url FROM documents")}
         results = apply_not_logic(results, [not_terms], cursor)
@@ -110,6 +124,7 @@ def search_subquery(query, cursor):
         results = {}
         tokens = tokenize(query)
         for token in tokens:
+            compressed_token = compress_term(token)
             cursor.execute(
                 """
             SELECT documents.url, inverted_index.tf, inverted_index.idf, inverted_index.tf * inverted_index.idf AS tfidf
@@ -118,7 +133,7 @@ def search_subquery(query, cursor):
             WHERE inverted_index.token = ?
             ORDER BY tfidf DESC
             """,
-                (token,),
+                (compressed_token,),
             )
             for row in cursor.fetchall():
                 url = row[0]

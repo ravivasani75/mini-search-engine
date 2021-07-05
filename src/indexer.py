@@ -8,6 +8,7 @@ from collections import defaultdict
 import sqlite3
 import ssl
 import math
+import zlib
 
 # Handle SSL certificate verification issues
 try:
@@ -31,6 +32,16 @@ def tokenize(text):
     return filtered_tokens
 
 
+def compress_term(term):
+    # Compress the term using zlib for basic compression
+    return zlib.compress(term.encode("utf-8"))
+
+
+def decompress_term(compressed_term):
+    # Decompress the term for lookup
+    return zlib.decompress(compressed_term).decode("utf-8")
+
+
 def build_index(data_directory, conn):
     doc_count = 0
     inverted_index = defaultdict(lambda: defaultdict(int))
@@ -49,8 +60,9 @@ def build_index(data_directory, conn):
 
                 # Count the frequency of each token
                 for token in tokens:
-                    inverted_index[token]["doc_freq"] += 1
-                    inverted_index[token][url] += 1
+                    compressed_token = compress_term(token)
+                    inverted_index[compressed_token]["doc_freq"] += 1
+                    inverted_index[compressed_token][url] += 1
 
                 # Insert the document details into the database
                 cursor = conn.cursor()
@@ -69,11 +81,9 @@ def build_index(data_directory, conn):
     conn.commit()
 
     # Calculate and store TF and IDF for each token in each document
-    for token, data in inverted_index.items():
+    for compressed_token, data in inverted_index.items():
         doc_freq = data.pop("doc_freq")
-        idf = max(
-            math.log((doc_count + 1) / (1 + doc_freq)), 0
-        )  # Apply correction to prevent negative values
+        idf = max(math.log((doc_count + 1) / (1 + doc_freq)), 0)
         for url, tf_count in data.items():
             cursor.execute("SELECT id, doc_length FROM documents WHERE url=?", (url,))
             result = cursor.fetchone()
@@ -82,7 +92,7 @@ def build_index(data_directory, conn):
                 tf = tf_count / doc_length if doc_length > 0 else 0
                 cursor.execute(
                     "INSERT INTO inverted_index (token, doc_id, frequency, tf, idf) VALUES (?, ?, ?, ?, ?)",
-                    (token, doc_id, tf_count, tf, idf),
+                    (compressed_token, doc_id, tf_count, tf, idf),
                 )
 
     conn.commit()
@@ -107,7 +117,7 @@ def save_index_sqlite(index, db_filepath):
         """
     CREATE TABLE IF NOT EXISTS inverted_index (
         id INTEGER PRIMARY KEY,
-        token TEXT NOT NULL,
+        token BLOB NOT NULL,  -- Store compressed tokens as BLOB
         doc_id INTEGER NOT NULL,
         frequency INTEGER NOT NULL,
         tf REAL NOT NULL,
@@ -137,4 +147,4 @@ if __name__ == "__main__":
     conn = save_index_sqlite(None, db_filepath)
     build_index(data_directory, conn)
     conn.close()
-    print(f"Inverted index with TF-IDF saved to {db_filepath}")
+    print(f"Inverted index with TF-IDF and compression saved to {db_filepath}")
