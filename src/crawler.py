@@ -1,11 +1,11 @@
 import logging
-import requests
+import aiohttp
+import asyncio
+import aiofiles
 from bs4 import BeautifulSoup
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urljoin, urlparse
-import time
 import random
 
 # Setup logging
@@ -16,25 +16,26 @@ logging.basicConfig(
 )
 
 # Configurable delay range between requests (in seconds)
-REQUEST_DELAY_MIN = 1  # Minimum delay
-REQUEST_DELAY_MAX = 3  # Maximum delay
+REQUEST_DELAY_MIN = 1
+REQUEST_DELAY_MAX = 3
+
+# Semaphore to limit the number of concurrent tasks
+semaphore = asyncio.Semaphore(100)
 
 
-def fetch_content(url):
+async def fetch_content(session, url):
     try:
-        # Introduce a random delay between requests
-        time.sleep(random.uniform(REQUEST_DELAY_MIN, REQUEST_DELAY_MAX))
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        return response.text
-    except requests.exceptions.RequestException as e:
+        await asyncio.sleep(random.uniform(REQUEST_DELAY_MIN, REQUEST_DELAY_MAX))
+        async with session.get(url, timeout=10) as response:
+            response.raise_for_status()
+            return await response.text()
+    except aiohttp.ClientError as e:
         logging.error(f"Failed to retrieve {url}: {e}")
         return None
 
 
 def parse_html(html_content):
-    soup = BeautifulSoup(html_content, "html.parser")
-    return soup
+    return BeautifulSoup(html_content, "html.parser")
 
 
 def extract_links(soup, base_url):
@@ -47,33 +48,59 @@ def extract_links(soup, base_url):
     return links
 
 
-def save_to_file(data, filename):
-    with open(filename, "w") as f:
-        json.dump(data, f, indent=4)
+async def save_to_file(data, filename):
+    async with aiofiles.open(filename, "w") as f:
+        await f.write(json.dumps(data, indent=4))
 
 
-def crawl(url, depth, max_depth, seen_urls):
-    if depth > max_depth:
-        logging.info(f"Maximum depth reached at {url}. Stopping crawl.")
+async def crawl(session, url, depth, max_depth, seen_urls):
+    async with semaphore:
+        if depth > max_depth:
+            logging.info(f"Maximum depth reached at {url}. Stopping crawl.")
+            return set()
+
+        if url in seen_urls:
+            logging.info(f"Skipping duplicate URL: {url}")
+            return set()
+        seen_urls.add(url)
+
+        content = await fetch_content(session, url)
+        if content:
+            soup = parse_html(content)
+            text = " ".join(soup.get_text().split())
+            filename = f"data/{url.replace('https://', '').replace('http://', '').replace('/', '_')}.json"
+            await save_to_file({"url": url, "content": text}, filename)
+            logging.info(f"Successfully crawled and saved content from {url}")
+
+            if depth < max_depth:
+                links = extract_links(soup, url)
+                return links
         return set()
 
-    if url in seen_urls:
-        logging.info(f"Skipping duplicate URL: {url}")
-        return set()
-    seen_urls.add(url)
 
-    content = fetch_content(url)
-    if content:
-        soup = parse_html(content)
-        text = " ".join(soup.get_text().split())
-        filename = f"data/{url.replace('https://', '').replace('http://', '').replace('/', '_')}.json"
-        save_to_file({"url": url, "content": text}, filename)
-        logging.info(f"Successfully crawled and saved content from {url}")
+async def process_links(session, depth, max_depth, urls, seen_urls):
+    tasks = [crawl(session, url, depth, max_depth, seen_urls) for url in urls]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        if depth < max_depth:
-            links = extract_links(soup, url)
-            return links  # Return links to be crawled at the next depth level
-    return set()
+    next_level_urls = set()
+    for result in results:
+        if isinstance(result, set):
+            next_level_urls.update(result)
+
+    return next_level_urls
+
+
+async def main(urls, max_depth):
+    seen_urls = set()
+    async with aiohttp.ClientSession() as session:
+        next_level_urls = await process_links(session, 0, max_depth, urls, seen_urls)
+
+        for depth in range(1, max_depth + 1):
+            if not next_level_urls:
+                break
+            next_level_urls = await process_links(
+                session, depth, max_depth, next_level_urls, seen_urls
+            )
 
 
 if __name__ == "__main__":
@@ -84,21 +111,11 @@ if __name__ == "__main__":
         urls = file.read().splitlines()
 
     max_depth = 2  # Set the maximum crawl depth
-    seen_urls = set()
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        future_to_url = {
-            executor.submit(crawl, url, 0, max_depth, seen_urls): url for url in urls
-        }
-        for depth in range(1, max_depth + 1):
-            next_level_urls = set()
-            for future in future_to_url:
-                result = future.result()
-                if result:
-                    next_level_urls.update(result)
-            if not next_level_urls:
-                break
-            future_to_url = {
-                executor.submit(crawl, url, depth, max_depth, seen_urls): url
-                for url in next_level_urls
-            }
+    # Explicitly creating the event loop and using it to run the main coroutine
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(main(urls, max_depth))
+    finally:
+        loop.close()
