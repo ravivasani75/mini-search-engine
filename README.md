@@ -1,9 +1,9 @@
 
 # Mini Search Engine
 
-## Project Overview
-This project implements a mini search engine that crawls specified websites, indexes the content, and allows users to search through the content using a command-line interface. The search results are ranked based on TF-IDF (Term Frequency-Inverse Document Frequency) scores, which measure the relevance of documents to the search query.
 
+## Project Overview
+This project implements a mini search engine that crawls specified websites, indexes the content, and allows users to search through the content using both a command-line interface and a web-based interface. The search results are ranked based on TF-IDF (Term Frequency-Inverse Document Frequency) scores, which measure the relevance of documents to the search query. Additionally, search terms are now highlighted in the results to enhance readability.
 ## Features
 - **Web Crawler**: A robust crawler that fetches and parses content from specified websites.
 - **Text Processing**: Tokenization, stemming, and stop word removal to prepare the text for indexing.
