@@ -23,7 +23,7 @@ This project implements a mini search engine that crawls specified websites, ind
 ## How It Works
 
 ### 1. Web Crawler (`crawler.py`)
-- Fetches content from the URLs listed in `websites.txt`.
+- Fetches content from the seed URLs listed in `websites.txt`.
 - Parses the HTML content to extract the text.
 - Stores the extracted content in JSON format.
 
@@ -41,18 +41,6 @@ This project implements a mini search engine that crawls specified websites, ind
 - Displays the top-ranked results to the user.
 
 ## Installation and Setup
-
-### Requirements
-- Python 3.x
-- Required Python packages (listed in `requirements.txt`):
-  - `nltk`
-  - `requests`
-  - `beautifulsoup4`
-  - `Flask`
-
-#
-
-## Instructions
 
 This project provides a mini search engine with both command-line and web-based interfaces. Follow the steps below to set up and use the project:
 
