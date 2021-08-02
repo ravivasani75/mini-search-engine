@@ -10,6 +10,9 @@ This project implements a mini search engine that crawls specified websites, ind
 - **Inverted Index**: Creation of an inverted index that maps terms to the documents in which they appear, along with their TF-IDF scores.
 - **TF-IDF Ranking**: Documents are ranked based on their TF-IDF scores, which prioritize terms that are distinctive to fewer documents.
 - **Boolean Search**: Support for Boolean operators (`AND`, `OR`, `NOT`) in search queries, with correct operator precedence.
+- **Web-Based User Interface**: A Flask-based web interface for querying and displaying search results.
+- **Result Highlighting**: Search terms are highlighted in the web interface results for easier readability.
+
 - **Search Interface**: A command-line interface that allows users to input search queries and retrieve ranked results based on TF-IDF ranking.
 
 ## Project Structure
@@ -47,51 +50,59 @@ This project implements a mini search engine that crawls specified websites, ind
   - `beautifulsoup4`
   - `Flask`
 
-### Instructions
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd mini-search-engine
-   ```
+#
 
-2. **Set up a virtual environment** (optional but recommended):
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
+## Instructions
 
-3. **Install the required packages**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+This project provides a mini search engine with both command-line and web-based interfaces. Follow the steps below to set up and use the project:
 
-4. **Run the web crawler** to fetch and parse content:
-   ```bash
-   python src/crawler.py
-   ```
+### 1. Install Dependencies
 
-5. **Run the indexer** to build the inverted index and calculate TF-IDF scores:
-   ```bash
-   python src/indexer.py
-   ```
+Ensure you have Python installed on your system. Install the required dependencies by running:
 
-6. **Search through the indexed data** using the command-line interface:
-   ```bash
-   python src/search.py
-   ```
+```bash
+pip install -r requirements.txt
+```
 
-### Example Queries
-- **Basic Search**: `python`
-- **Boolean Search**: `python AND machine OR java AND NOT javascript`
+### 2. Run the Web Crawler
 
-## Future Enhancements
-- **Phrase and Proximity Search**: Implement support for exact phrases and proximity-based searches.
-- **Web Interface**: Develop a Flask-based web interface for more user-friendly search interactions.
-- **Performance Optimization**: Implement index compression and parallel crawling to enhance performance.
+Use the `crawler.py` script to crawl websites listed in the `websites.txt` file:
 
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
+```bash
+python crawler.py
+```
 
-## Acknowledgments
-- Inspired by basic search engine concepts and TF-IDF implementations.
-- NLTK library for natural language processing.
+This script will fetch the content from the URLs and store the crawled data in the `data` directory as JSON files.
+
+### 3. Run the Indexer
+
+After crawling, index the data using the `indexer.py` script:
+
+```bash
+python indexer.py
+```
+
+This script processes the crawled data, builds an inverted index, and calculates TF-IDF scores. The results are stored in an SQLite database (`inverted_index.db`).
+
+### 4. Search the Data
+
+#### Command-Line Interface:
+
+You can perform searches directly from the command line using the `search.py` script. This script supports Boolean queries (e.g., `python AND not java`) and returns ranked results based on TF-IDF scores.
+
+```bash
+python search.py
+```
+
+Follow the on-screen instructions to input your search query.
+
+#### Web-Based Interface:
+
+Alternatively, you can use the web-based interface provided by the Flask application. To start the web interface, run:
+
+```bash
+python app.py
+```
+
+Open your web browser and navigate to `http://127.0.0.1:5000/` to access the search page. Enter your query in the search box and press "Search." The search results will be displayed with the matching terms highlighted for easy identification.
+

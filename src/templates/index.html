@@ -1,0 +1,29 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Search Engine</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Mini Search Engine</h1>
+        <form method="post">
+            <input type="text" name="query" placeholder="Enter your search query" value="{{ query }}" required>
+            <button type="submit">Search</button>
+        </form>
+        {% if results %}
+            <h2>Search Results:</h2>
+            <ul>
+                {% for url, score in results %}
+                    <li><a href="{{ url|safe }}">{{ url|safe }}</a> - Relevance Score: {{ score }}</li>
+                {% endfor %}
+            </ul>
+        {% elif query %}
+            <p>No results found for "{{ query }}".</p>
+        {% endif %}
+    </div>
+</body>
+</html>
